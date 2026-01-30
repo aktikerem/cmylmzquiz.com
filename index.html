@@ -96,12 +96,14 @@
 
     const TOTAL_QUESTIONS = 10;
     const PLAY_TIME = 10;
+    const RESUME_TIME = 4; // seconds after answering
 
     let player;
     let quiz = [];
     let current = 0;
     let score = 0;
     let timer;
+    let resumeTimer;
 
     function shuffle(arr) {
       return [...arr].sort(() => Math.random() - 0.5);
@@ -136,12 +138,20 @@
     }
 
     function loadQuestion() {
-      clearTimeout(timer);
+  clearTimeout(timer);
+  clearTimeout(resumeTimer);
 
-      if (current >= quiz.length) {
-        alert("Quiz finished! Final score: " + score);
-        return;
-      }
+  if (current >= quiz.length) {
+    alert("Quiz finished! Final score: " + score);
+    return;
+  }
+
+  // 🔓 Re-enable input for next question
+  const input = document.getElementById("answerInput");
+  input.disabled = false;
+  input.value = "";
+
+  document.getElementById("questionBox").classList.add("hidden");
 
       document.getElementById("questionBox").classList.add("hidden");
       document.getElementById("answerInput").value = "";
@@ -160,27 +170,36 @@
       }, PLAY_TIME * 1000);
     }
 
-    function submitAnswer() {
-      const user = document.getElementById("answerInput").value;
-      const correct = quiz[current].answer;
+function submitAnswer() {
+  clearTimeout(timer);
+  clearTimeout(resumeTimer);
 
-      if (correct && user) {
-        const correctWords = countCorrectWords(user, correct);
-        score += exponentialScore(correctWords);
-      }
+  const input = document.getElementById("answerInput");
+  const user = input.value;
+  const correct = quiz[current].answer;
 
-      document.getElementById("score").innerText = "Score: " + score;
-      current++;
-      loadQuestion();
-    }
+  if (correct && user) {
+    const correctWords = countCorrectWords(user, correct);
+    score += exponentialScore(correctWords);
+  }
 
-    document.getElementById("startBtn").onclick = () => {
-      quiz = shuffle(QUESTION_POOL).slice(0, TOTAL_QUESTIONS);
-      current = 0;
-      score = 0;
-      document.getElementById("score").innerText = "Score: 0";
-      loadQuestion();
-    };
+  document.getElementById("score").innerText = "Score: " + score;
+  document.getElementById("questionBox").classList.add("hidden");
+
+  // 🔒 Disable input DURING resume playback
+  input.disabled = true;
+
+  // ▶ Resume video for 4 seconds
+  player.playVideo();
+
+  resumeTimer = setTimeout(() => {
+    player.pauseVideo();
+    current++;
+    loadQuestion();
+  }, RESUME_TIME * 1000);
+}
+
+
 
     document.getElementById("submitBtn").onclick = submitAnswer;
 
