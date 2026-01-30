@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Line Quiz</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      width: 100%;
+    }
+
+    #player {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 10px;
+      overflow: hidden;
+      pointer-events: none; /* 🚫 no mouse interaction */
+    }
+
+    .start {
+      margin-bottom: 10px;
+      padding: 12px;
+      width: 100%;
+      font-size: 18px;
+      background: #0a84ff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .quiz {
+      display: none;
+      margin-top: 15px;
+      background: #222;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .score {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <button class="start" id="startBtn">Start Quiz</button>
+
+  <!-- YouTube player -->
+  <div id="player"></div>
+
+  <div class="quiz" id="quiz">
+    <p><strong>What’s the next line?</strong></p>
+    <input id="answer" placeholder="Type the next line..." />
+    <button onclick="submitAnswer()">Submit</button>
+    <p id="feedback"></p>
+  </div>
+
+  <div class="score" id="score">Score: 0</div>
+</div>
+
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+  let player;
+  let quizActive = false;
+  let checkpointIndex = 0;
+  let score = 0;
+
+  const quizBox = document.getElementById("quiz");
+  const answerInput = document.getElementById("answer");
+  const feedback = document.getElementById("feedback");
+  const scoreDisplay = document.getElementById("score");
+  const startBtn = document.getElementById("startBtn");
+
+  // 🔧 CHANGE THESE
+  const VIDEO_ID = "aglsRJak7Tw";
+
+  const checkpoints = [
+    { time: 5, line: "Hello there" },
+    { time: 12, line: "General Kenobi" }
+  ];
+
+  // YouTube API callback
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player("player", {
+      videoId: VIDEO_ID,
+      playerVars: {
+        controls: 0,
+        disablekb: 1,
+        modestbranding: 1,
+        rel: 0,
+        fs: 0
+      },
+      events: {
+        onReady: onPlayerReady
+      }
+    });
+  }
+
+  function onPlayerReady() {
+    startBtn.addEventListener("click", () => {
+      startBtn.style.display = "none";
+      player.seekTo(0);
+      player.playVideo();
+      startTimer();
+    });
+  }
+
+  // ⏱ Manual time tracking (YouTube has no timeupdate event)
+  function startTimer() {
+    setInterval(() => {
+      if (!quizActive && checkpointIndex < checkpoints.length) {
+        const currentTime = player.getCurrentTime();
+
+        if (currentTime >= checkpoints[checkpointIndex].time) {
+          quizActive = true;
+          player.pauseVideo();
+          showQuiz();
+        }
+      }
+    }, 250);
+  }
+
+  function showQuiz() {
+    quizBox.style.display = "block";
+    answerInput.focus();
+  }
+
+  function submitAnswer() {
+    const user = normalize(answerInput.value);
+    const correct = normalize(checkpoints[checkpointIndex].line);
+
+    const similarityScore = similarity(user, correct);
+
+    if (similarityScore >= 0.75) {
+      score++;
+      feedback.textContent = "✅ Correct!";
+    } else {
+      feedback.textContent = `❌ Wrong. Correct line: "${checkpoints[checkpointIndex].line}"`;
+    }
+
+    scoreDisplay.textContent = `Score: ${score}`;
+
+    setTimeout(() => {
+      quizBox.style.display = "none";
+      feedback.textContent = "";
+      answerInput.value = "";
+      quizActive = false;
+      checkpointIndex++;
+      player.playVideo();
+    }, 1500);
+  }
+
+  // 🚫 Block spacebar video control
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && document.activeElement !== answerInput) {
+      e.preventDefault();
+    }
+  });
+
+  function normalize(text) {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function levenshtein(a, b) {
+    const matrix = Array.from({ length: a.length + 1 }, () =>
+      Array(b.length + 1).fill(0)
+    );
+
+    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
+        );
+      }
+    }
+
+    return matrix[a.length][b.length];
+  }
+
+  function similarity(a, b) {
+    if (!a.length || !b.length) return 0;
+    return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+  }
+</script>
+
+</body>
+</html>
