@@ -54,10 +54,6 @@
       overflow: hidden;
     }
 
-    #questionBox {
-      margin-top: 15px;
-    }
-
     #score {
       margin-top: 10px;
       font-weight: bold;
@@ -82,22 +78,19 @@
     <div id="score">Score: 0</div>
   </div>
 
-  <!-- YouTube IFrame API -->
   <script src="https://www.youtube.com/iframe_api"></script>
 
   <script>
-    /***********************
-     * QUESTION POOL
-     * Add more videos here
-     ***********************/
     const QUESTION_POOL = [
       {
         videoId: "m7b7havwYSw",
-        answer: "değişecek zannediyor Yani hemen 1 Ocak 2000'de tak bir yerden bir yere ışınlan acağı zannediyor Hayır öyle bir şey yok yani elinizdeki abonmanı mavi kartları atmayın Onlar lazım olacak" // ← ENTER CORRECT NEXT LINE HERE
+        start: 0,
+        answer: "değişecek zannediyor Yani hemen 1 Ocak 2000'de tak bir yerden bir yere ışınlan acağı zannediyor Hayır öyle bir şey yok yani elinizdeki abonmanı mavi kartları atmayın Onlar lazım olacak" // ENTER ANSWER
       },
       {
         videoId: "xCKnlQT37WE",
-        answer: "klişe eylenme ve kutlama şeklinde en çok yakışan kırmızı don giyme olayı. Gerçekten Noel Baba'nın hani getirdiği çantada var mı bakalım? Kırmızı don. Bu biraz büyük umutlar için. Böyle salak süsler var. Bunları koyunca bambaşka bir insan oluyorsun herhalde. Öyle düşünülmüş." // ← ENTER CORRECT NEXT LINE HERE
+        start: 0,
+        answer: "klişe eylenme ve kutlama şeklinde en çok yakışan kırmızı don giyme olayı. Gerçekten Noel Baba'nın hani getirdiği çantada var mı bakalım? Kırmızı don. Bu biraz büyük umutlar için. Böyle salak süsler var. Bunları koyunca bambaşka bir insan oluyorsun herhalde. Öyle düşünülmüş." // ENTER ANSWER
       }
     ];
 
@@ -114,44 +107,37 @@
       return [...arr].sort(() => Math.random() - 0.5);
     }
 
+    function normalizeText(text) {
+      return text
+        .toLowerCase()
+        .replace(/[.,!?;:"'()]/g, "")
+        .replace(/ı/g, "i")
+        .replace(/ş/g, "s")
+        .replace(/ç/g, "c")
+        .replace(/ö/g, "o")
+        .replace(/ğ/g, "g")
+        .replace(/ü/g, "u")
+        .trim();
+    }
+
+    function countCorrectWords(userAnswer, correctAnswer) {
+      const userWords = new Set(normalizeText(userAnswer).split(/\s+/));
+      const correctWords = new Set(normalizeText(correctAnswer).split(/\s+/));
+
+      let count = 0;
+      for (const word of correctWords) {
+        if (userWords.has(word)) count++;
+      }
+      return count;
+    }
+
     function exponentialScore(wordCount) {
-      return Math.floor(Math.pow(1.8, wordCount));
-    }
-
-    function similarity(a, b) {
-      a = a.toLowerCase().split(" ");
-      b = b.toLowerCase().split(" ");
-
-      let matches = 0;
-      for (let w of a) {
-        if (b.some(x => levenshtein(w, x) <= 2)) {
-          matches++;
-        }
-      }
-      return matches;
-    }
-
-    function levenshtein(a, b) {
-      const dp = Array.from({ length: a.length + 1 }, () =>
-        Array(b.length + 1).fill(0)
-      );
-
-      for (let i = 0; i <= a.length; i++) dp[i][0] = i;
-      for (let j = 0; j <= b.length; j++) dp[0][j] = j;
-
-      for (let i = 1; i <= a.length; i++) {
-        for (let j = 1; j <= b.length; j++) {
-          dp[i][j] = Math.min(
-            dp[i - 1][j] + 1,
-            dp[i][j - 1] + 1,
-            dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-          );
-        }
-      }
-      return dp[a.length][b.length];
+      return Math.floor(Math.pow(1.35, wordCount) + wordCount * 2);
     }
 
     function loadQuestion() {
+      clearTimeout(timer);
+
       if (current >= quiz.length) {
         alert("Quiz finished! Final score: " + score);
         return;
@@ -160,7 +146,11 @@
       document.getElementById("questionBox").classList.add("hidden");
       document.getElementById("answerInput").value = "";
 
-      player.loadVideoById(quiz[current].videoId);
+      player.loadVideoById({
+        videoId: quiz[current].videoId,
+        startSeconds: quiz[current].start
+      });
+
       player.playVideo();
 
       timer = setTimeout(() => {
@@ -171,12 +161,12 @@
     }
 
     function submitAnswer() {
-      const user = document.getElementById("answerInput").value.trim();
+      const user = document.getElementById("answerInput").value;
       const correct = quiz[current].answer;
 
-      if (correct.length > 0 && user.length > 0) {
-        const matchedWords = similarity(user, correct);
-        score += exponentialScore(matchedWords);
+      if (correct && user) {
+        const correctWords = countCorrectWords(user, correct);
+        score += exponentialScore(correctWords);
       }
 
       document.getElementById("score").innerText = "Score: " + score;
