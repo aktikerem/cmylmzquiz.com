@@ -44,6 +44,11 @@
       margin-top: 10px;
     }
 
+    input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .hidden {
       display: none;
     }
@@ -63,7 +68,7 @@
 
 <body>
   <div class="app">
-    <button id="startBtn">Start Quiz</button>
+    <button id="startBtn" disabled>Start Quiz</button>
 
     <div id="videoWrapper">
       <div id="player"></div>
@@ -81,23 +86,28 @@
   <script src="https://www.youtube.com/iframe_api"></script>
 
   <script>
+    /***********************
+     * CONFIG
+     ***********************/
     const QUESTION_POOL = [
       {
         videoId: "m7b7havwYSw",
         start: 0,
-        answer: "değişecek zannediyor Yani hemen 1 Ocak 2000'de tak bir yerden bir yere ışınlan acağı zannediyor Hayır öyle bir şey yok yani elinizdeki abonmanı mavi kartları atmayın Onlar lazım olacak" // ENTER ANSWER
+        answer: "degisecek zannediyor yani hemen 1 ocak 2000de tak bir yerden bir yere isinlanacagi zannediyor"
       },
       {
         videoId: "xCKnlQT37WE",
         start: 0,
-        answer: "klişe eylenme ve kutlama şeklinde en çok yakışan kırmızı don giyme olayı. Gerçekten Noel Baba'nın hani getirdiği çantada var mı bakalım? Kırmızı don. Bu biraz büyük umutlar için. Böyle salak süsler var. Bunları koyunca bambaşka bir insan oluyorsun herhalde. Öyle düşünülmüş." // ENTER ANSWER
+        answer: "klise eglenme ve kutlama seklinde en cok yakisan kirmizi don giyme olayi"
       }
     ];
 
-    const TOTAL_QUESTIONS = 10;
     const PLAY_TIME = 10;
-    const RESUME_TIME = 4; // seconds after answering
+    const RESUME_TIME = 4;
 
+    /***********************
+     * STATE
+     ***********************/
     let player;
     let quiz = [];
     let current = 0;
@@ -105,6 +115,9 @@
     let timer;
     let resumeTimer;
 
+    /***********************
+     * UTILS
+     ***********************/
     function shuffle(arr) {
       return [...arr].sort(() => Math.random() - 0.5);
     }
@@ -137,24 +150,23 @@
       return Math.floor(Math.pow(1.35, wordCount) + wordCount * 2);
     }
 
+    /***********************
+     * CORE FLOW
+     ***********************/
     function loadQuestion() {
-  clearTimeout(timer);
-  clearTimeout(resumeTimer);
+      clearTimeout(timer);
+      clearTimeout(resumeTimer);
 
-  if (current >= quiz.length) {
-    alert("Quiz finished! Final score: " + score);
-    return;
-  }
+      if (current >= quiz.length) {
+        alert("Quiz finished! Final score: " + score);
+        return;
+      }
 
-  // 🔓 Re-enable input for next question
-  const input = document.getElementById("answerInput");
-  input.disabled = false;
-  input.value = "";
-
-  document.getElementById("questionBox").classList.add("hidden");
+      const input = document.getElementById("answerInput");
+      input.disabled = false;
+      input.value = "";
 
       document.getElementById("questionBox").classList.add("hidden");
-      document.getElementById("answerInput").value = "";
 
       player.loadVideoById({
         videoId: quiz[current].videoId,
@@ -166,47 +178,57 @@
       timer = setTimeout(() => {
         player.pauseVideo();
         document.getElementById("questionBox").classList.remove("hidden");
-        document.getElementById("answerInput").focus();
+        input.focus();
       }, PLAY_TIME * 1000);
     }
 
-function submitAnswer() {
-  clearTimeout(timer);
-  clearTimeout(resumeTimer);
+    function submitAnswer() {
+      clearTimeout(timer);
+      clearTimeout(resumeTimer);
 
-  const input = document.getElementById("answerInput");
-  const user = input.value;
-  const correct = quiz[current].answer;
+      const input = document.getElementById("answerInput");
+      const user = input.value;
+      const correct = quiz[current].answer;
 
-  if (correct && user) {
-    const correctWords = countCorrectWords(user, correct);
-    score += exponentialScore(correctWords);
-  }
+      if (user && correct) {
+        const matched = countCorrectWords(user, correct);
+        score += exponentialScore(matched);
+      }
 
-  document.getElementById("score").innerText = "Score: " + score;
-  document.getElementById("questionBox").classList.add("hidden");
+      document.getElementById("score").innerText = "Score: " + score;
+      document.getElementById("questionBox").classList.add("hidden");
 
-  // 🔒 Disable input DURING resume playback
-  input.disabled = true;
+      input.disabled = true;
 
-  // ▶ Resume video for 4 seconds
-  player.playVideo();
+      player.playVideo();
 
-  resumeTimer = setTimeout(() => {
-    player.pauseVideo();
-    current++;
-    loadQuestion();
-  }, RESUME_TIME * 1000);
-}
+      resumeTimer = setTimeout(() => {
+        player.pauseVideo();
+        current++;
+        loadQuestion();
+      }, RESUME_TIME * 1000);
+    }
 
-
-
+    /***********************
+     * EVENTS
+     ***********************/
     document.getElementById("submitBtn").onclick = submitAnswer;
 
     document.getElementById("answerInput").addEventListener("keydown", e => {
-      if (e.key === "Enter") submitAnswer();
+      if (e.key === "Enter" && !e.target.disabled) submitAnswer();
     });
 
+    document.getElementById("startBtn").onclick = () => {
+      quiz = shuffle(QUESTION_POOL);
+      current = 0;
+      score = 0;
+      document.getElementById("score").innerText = "Score: 0";
+      loadQuestion();
+    };
+
+    /***********************
+     * YOUTUBE API
+     ***********************/
     function onYouTubeIframeAPIReady() {
       player = new YT.Player("player", {
         height: "360",
@@ -217,6 +239,11 @@ function submitAnswer() {
           modestbranding: 1,
           rel: 0,
           fs: 0
+        },
+        events: {
+          onReady: () => {
+            document.getElementById("startBtn").disabled = false;
+          }
         }
       });
     }
