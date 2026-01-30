@@ -1,246 +1,216 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>YouTube Line Quiz</title>
+  <meta charset="UTF-8" />
+  <title>YouTube Lyrics Quiz</title>
+
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #eee;
+      background: #0f0f0f;
+      color: #fff;
+      font-family: system-ui, sans-serif;
       display: flex;
       justify-content: center;
+      padding: 40px;
+    }
+
+    .app {
+      width: 800px;
+      background: #1a1a1a;
       padding: 20px;
+      border-radius: 12px;
     }
 
-    .container {
-      max-width: 700px;
-      width: 100%;
-    }
-
-    .start {
-      margin-bottom: 10px;
-      padding: 12px;
-      width: 100%;
-      font-size: 18px;
-      background: #0a84ff;
-      color: white;
+    button {
+      padding: 10px 18px;
       border: none;
-      border-radius: 10px;
+      border-radius: 6px;
       cursor: pointer;
+      font-size: 16px;
     }
 
-    /* 🎬 Player wrapper */
-    .player-wrapper {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      border-radius: 10px;
-      overflow: hidden;
-      background: black;
-    }
-
-    #player {
-      width: 100%;
-      height: 100%;
-      pointer-events: none; /* 🚫 no interaction */
-    }
-
-    /* 🛡 Overlay that hides YouTube UI */
-    .player-cover {
-      position: absolute;
-      inset: 0;
-      background: transparent;
-      display: none;
-      z-index: 10;
-    }
-
-    .quiz {
-      display: none;
-      margin-top: 15px;
-      background: #222;
-      padding: 15px;
-      border-radius: 10px;
+    #startBtn {
+      background: #4caf50;
+      color: #000;
+      margin-bottom: 15px;
     }
 
     input {
       width: 100%;
       padding: 10px;
-      margin-top: 10px;
       font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      margin-top: 10px;
     }
 
-    button {
-      margin-top: 10px;
-      padding: 10px 15px;
-      font-size: 16px;
-      cursor: pointer;
+    .hidden {
+      display: none;
     }
 
-    .score {
+    #videoWrapper {
+      margin-bottom: 15px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #questionBox {
+      margin-top: 15px;
+    }
+
+    #score {
       margin-top: 10px;
       font-weight: bold;
     }
   </style>
 </head>
+
 <body>
+  <div class="app">
+    <button id="startBtn">Start Quiz</button>
 
-<div class="container">
-  <button class="start" id="startBtn">Start Quiz</button>
+    <div id="videoWrapper">
+      <div id="player"></div>
+    </div>
 
-  <div class="player-wrapper">
-    <div id="player"></div>
-    <div class="player-cover" id="playerCover"></div>
+    <div id="questionBox" class="hidden">
+      <p>What’s the next line?</p>
+      <input id="answerInput" placeholder="Type here..." />
+      <button id="submitBtn">Submit</button>
+    </div>
+
+    <div id="score">Score: 0</div>
   </div>
 
-  <div class="quiz" id="quiz">
-    <p><strong>What’s the next line?</strong></p>
-    <input id="answer" placeholder="Type the next line..." />
-    <button onclick="submitAnswer()">Submit</button>
-    <p id="feedback"></p>
-  </div>
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
 
-  <div class="score" id="score">Score: 0</div>
-</div>
-
-<!-- YouTube API -->
-<script src="https://www.youtube.com/iframe_api"></script>
-
-<script>
-  let player;
-  let quizActive = false;
-  let checkpointIndex = 0;
-  let score = 0;
-  let timer;
-
-  const quizBox = document.getElementById("quiz");
-  const answerInput = document.getElementById("answer");
-  const feedback = document.getElementById("feedback");
-  const scoreDisplay = document.getElementById("score");
-  const startBtn = document.getElementById("startBtn");
-  const playerCover = document.getElementById("playerCover");
-
-  /* 🔧 CHANGE THIS */
-  const VIDEO_ID = "aglsRJak7Tw";
-
-  const checkpoints = [
-    { time: 5, line: "kim" },
-    { time: 12, line: "benim adim" }
-  ];
-
-  function onYouTubeIframeAPIReady() {
-    player = new YT.Player("player", {
-      videoId: VIDEO_ID,
-      playerVars: {
-        controls: 0,
-        disablekb: 1,
-        modestbranding: 1,
-        rel: 0,
-        fs: 0
+  <script>
+    /***********************
+     * QUESTION POOL
+     * Add more videos here
+     ***********************/
+    const QUESTION_POOL = [
+      {
+        videoId: "m7b7havwYSw",
+        answer: "değişecek zannediyor Yani hemen 1 Ocak 2000'de tak bir yerden bir yere ışınlan acağı zannediyor Hayır öyle bir şey yok yani elinizdeki abonmanı mavi kartları atmayın Onlar lazım olacak" // ← ENTER CORRECT NEXT LINE HERE
       },
-      events: {
-        onReady: onPlayerReady
+      {
+        videoId: "xCKnlQT37WE",
+        answer: "klişe eylenme ve kutlama şeklinde en çok yakışan kırmızı don giyme olayı. Gerçekten Noel Baba'nın hani getirdiği çantada var mı bakalım? Kırmızı don. Bu biraz büyük umutlar için. Böyle salak süsler var. Bunları koyunca bambaşka bir insan oluyorsun herhalde. Öyle düşünülmüş." // ← ENTER CORRECT NEXT LINE HERE
       }
-    });
-  }
+    ];
 
-  function onPlayerReady() {
-    startBtn.addEventListener("click", () => {
-      startBtn.style.display = "none";
-      player.seekTo(0);
-      player.playVideo();
-      startTimer();
-    });
-  }
+    const TOTAL_QUESTIONS = 10;
+    const PLAY_TIME = 10;
 
-  function startTimer() {
-    timer = setInterval(() => {
-      if (!quizActive && checkpointIndex < checkpoints.length) {
-        const t = player.getCurrentTime();
+    let player;
+    let quiz = [];
+    let current = 0;
+    let score = 0;
+    let timer;
 
-        // ⏸ pause slightly BEFORE the line
-        if (t >= checkpoints[checkpointIndex].time - 0.3) {
-          quizActive = true;
-          player.pauseVideo();
-          showQuiz();
+    function shuffle(arr) {
+      return [...arr].sort(() => Math.random() - 0.5);
+    }
+
+    function exponentialScore(wordCount) {
+      return Math.floor(Math.pow(1.8, wordCount));
+    }
+
+    function similarity(a, b) {
+      a = a.toLowerCase().split(" ");
+      b = b.toLowerCase().split(" ");
+
+      let matches = 0;
+      for (let w of a) {
+        if (b.some(x => levenshtein(w, x) <= 2)) {
+          matches++;
         }
       }
-    }, 250);
-  }
-
-  function showQuiz() {
-    playerCover.style.display = "block"; // 🛡 hide YouTube UI
-    quizBox.style.display = "block";
-    answerInput.focus();
-  }
-
-  function submitAnswer() {
-    const user = normalize(answerInput.value);
-    const correct = normalize(checkpoints[checkpointIndex].line);
-
-    const sim = similarity(user, correct);
-
-    if (sim >= 0.75) {
-      score++;
-      feedback.textContent = "✅ Correct!";
-    } else {
-      feedback.textContent = `❌ Wrong. Correct line: "${checkpoints[checkpointIndex].line}"`;
+      return matches;
     }
 
-    scoreDisplay.textContent = `Score: ${score}`;
+    function levenshtein(a, b) {
+      const dp = Array.from({ length: a.length + 1 }, () =>
+        Array(b.length + 1).fill(0)
+      );
 
-    setTimeout(() => {
-      quizBox.style.display = "none";
-      feedback.textContent = "";
-      answerInput.value = "";
-      quizActive = false;
-      checkpointIndex++;
-      playerCover.style.display = "none";
-      player.playVideo();
-    }, 1500);
-  }
+      for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+      for (let j = 0; j <= b.length; j++) dp[0][j] = j;
 
-  /* 🚫 Block spacebar outside input */
-  document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && document.activeElement !== answerInput) {
-      e.preventDefault();
-    }
-  });
-
-  function normalize(text) {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function levenshtein(a, b) {
-    const matrix = Array.from({ length: a.length + 1 }, () =>
-      Array(b.length + 1).fill(0)
-    );
-
-    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
-    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
-
-    for (let i = 1; i <= a.length; i++) {
-      for (let j = 1; j <= b.length; j++) {
-        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j - 1] + cost
-        );
+      for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+          );
+        }
       }
+      return dp[a.length][b.length];
     }
-    return matrix[a.length][b.length];
-  }
 
-  function similarity(a, b) {
-    if (!a.length || !b.length) return 0;
-    return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
-  }
-</script>
+    function loadQuestion() {
+      if (current >= quiz.length) {
+        alert("Quiz finished! Final score: " + score);
+        return;
+      }
 
+      document.getElementById("questionBox").classList.add("hidden");
+      document.getElementById("answerInput").value = "";
+
+      player.loadVideoById(quiz[current].videoId);
+      player.playVideo();
+
+      timer = setTimeout(() => {
+        player.pauseVideo();
+        document.getElementById("questionBox").classList.remove("hidden");
+        document.getElementById("answerInput").focus();
+      }, PLAY_TIME * 1000);
+    }
+
+    function submitAnswer() {
+      const user = document.getElementById("answerInput").value.trim();
+      const correct = quiz[current].answer;
+
+      if (correct.length > 0 && user.length > 0) {
+        const matchedWords = similarity(user, correct);
+        score += exponentialScore(matchedWords);
+      }
+
+      document.getElementById("score").innerText = "Score: " + score;
+      current++;
+      loadQuestion();
+    }
+
+    document.getElementById("startBtn").onclick = () => {
+      quiz = shuffle(QUESTION_POOL).slice(0, TOTAL_QUESTIONS);
+      current = 0;
+      score = 0;
+      document.getElementById("score").innerText = "Score: 0";
+      loadQuestion();
+    };
+
+    document.getElementById("submitBtn").onclick = submitAnswer;
+
+    document.getElementById("answerInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") submitAnswer();
+    });
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player("player", {
+        height: "360",
+        width: "100%",
+        playerVars: {
+          controls: 0,
+          disablekb: 1,
+          modestbranding: 1,
+          rel: 0,
+          fs: 0
+        }
+      });
+    }
+  </script>
 </body>
 </html>
